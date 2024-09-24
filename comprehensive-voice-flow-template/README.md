@@ -1,98 +1,126 @@
-# Comprehensive Inbound Contact Flow - Template
+# Comprehensive Inbound Call Flow - Template
 
 ## Name
-Comprehensive Inbound Contact Flow
 
-## Labels 
-Intermediate, Voice, Inbound, PIQ, Queue
+Comprehensive Inbound Call Flow
+
+## Labels
+
+Intermediate, Voice, Inbound, Menu, Queue, PIQ, Music, Callback, Voicemail, Error Handling
 
 ## Description
 
-This flow demonstrates a comprehensive inbound voice call scenario for Webex Contact Center. It includes handling business hours, holidays, emergency overrides, self-service options, position in queue (PIQ) announcements, and customer callback options. This is suitable for environments where basic self-service and call queuing are essential.
+A comprehensive voice flow where Callers are greeted, then we check business hours, holidays, and any overrides (i.e., emergency closing). We continue on with self-service menu options, queuing, announcing position in queue (PIQ), customer callback and voicemail opt-out options. We finish off with two event flows: global error handling, and Agent screen pop. This is suitable for environments where basic self-service and call queuing are essential.
 
 ## Details
 
-This inbound flow provides a comprehensive handling of incoming calls, covering business hours checks, position in queue announcements, and callback options. Modify the flow to fit specific organization needs and to handle unknown conditions gracefully.
+This flow provides a comprehensive handling of incoming calls in a contact center:
 
-> Note: This flow uses Cisco Text-to-Speech (TTS) for audio activities requiring prompts (if any).
->
-> For music, it defaults to the `defaultmusic_on_hold.wav` file provided out-of-box.
->
-> All organization-specific configurations such as Queue, Entry Points, Connectors, Outdial ANI must be manually configured in the Control Hub settings page for Webex Contact Center before publishing.
+1. A call is received and enters the flow through the entry point.
+2. A welcome message is played to the Caller.
+3. Business Hours, Holidays, Overrides are checked
+   a. Overrides have highest priority, then holidays, then working hours (aka shifts), and if none of those three match, then Default (aka after hours) is the branch taken.
+   b. For overrides, holidays and after hours we play an appropriate message to the caller then hang up.
+4. A menu is presented to the caller, where the default option is set to the second menu option. This is important for when DTMF is either not working, or not possible (e.g., hands free calling while driving)
+5. While waiting in the queue, hold messaging and music are played to the Caller.
+6. Depending on queue depth, the Caller is offer alternatives to waiting in queue: Callback and voicemail opt-out.
+7. We handle all errors in this flow, with the majority of the error handling being a continuation of the flow. We try to survive the error, and just keep moving forward.
+8. We handle erros in queuing the Caller, by leveraging the event flow error handler, which tells the caller we're experiencing an error, and to try their call again later.
 
-### Pre-requisites
+## Pre-requisites
 
-- Create Entry Point, Queue, Teams, and Entry Point Mapping from the Control Hub settings page for Webex Contact Center. Refer to the [Webex Contact Center Setup and Administration Guide](https://help.webex.com/en-us/article/n5595zd/Webex-Contact-Center-Setup-and-Administration-Guide#Cisco_Generic_Topic.dita_e338e055-64b0-4973-bd52-8a5581dcb0ee).
-- Set up working hours, holiday lists, and emergency overrides from Control Hub → Services → Contact Center Setup → Business Hours.
-- If Cisco Text-to-Speech (TTS) is not enabled for prompts, upload the required static audio files.
+From the Control Hub settings page for Webex Contact Center:
 
-### Flow Breakdown
+- Create Entry Point with Mapped Phone Number
+- Create one or more Agents
+- Create one or more Agent Based Teams, and associate Agent(s)
+- Create two Inbound Telephony Queues, and associate Team(s)
+- Create an Override schedule
+- Create a Holiday schedule
+- Create a Business Hours schedule and associate override and holiday schedules
 
-1. **Call is Received:**
-   - Call enters the flow at the **NewPhoneContact** activity.
+This flow uses Cisco Text-to-Speech (TTS) for the welcome and queue messages. If you rather use WAV files, you can upload your own audio files, under: Control Hub > Contact Center > Audo Prompts.
 
-2. **Check Business Hours:**
-   - The flow checks the current time against the defined business hours using the **BusinessHours** activity.
-     - **Working Hours:** The call is routed to the **Work_Non_WorkHours_Match** activity, and further handled based on conditions such as open hours or after-hours.
-     - **Holidays:** The **Holiday_Closed** message plays, informing the caller that the office is closed due to a holiday, followed by disconnection.
-     - **Emergency Override:** The **Override_Emergency** activity plays an emergency override message, followed by disconnection.
-     - **After Hours:** The **AfterHours_Prompt** activity plays a closed-hours message, and the call is disconnected.
+Refer to the [Webex Contact Center Setup and Administration Guide](https://help.webex.com/en-us/article/n5595zd/Webex-Contact-Center-Setup-and-Administration-Guide) for more details on configuring these items.
 
-3. **Self-Service Options:**
-   - During open hours, the **WelcomeMenu** (IVR Menu) activity plays a menu offering basic self-service options to callers:
-     - **Press 1 for Customer Support:** The call is queued for the support team.
-     - **Press 2 for Sales:** The call is queued for the sales team.
+## Activities Used in the Flow
 
-4. **Queue Placement:**
-   - The caller is placed in a queue using the **Queue** activity.
-   - The **GetPositioninQueue** activity retrieves the caller’s position in the queue, and this information is announced to the caller using the **PlayPIQ** activity.
+Here are the activities used in the flow:
 
-5. **Callback and Voicemail Options:**
-   - If the caller chooses to leave a voicemail or request a callback, the **FinalMenu** activity is triggered:
-     - **Press 1 for Callback:** The **Callback_guf** activity is used to schedule a callback.
-     - **Press 2 for Voicemail:** The call is transferred to voicemail using the **VoiceMail** activity.
+**Start Flow (NewPhoneContact)**
 
-6. **Hold Music:**
-   - While waiting in the queue, the caller hears hold music using the **MusicOnHold** activity.
+- The flow begins when a call is received via the entry point.
+- The call is accepted into the flow and proceeds to the next step.
 
-7. **Loop Handling:**
-   - The flow ensures that if a caller loops too many times (via the **CallLoopCycle** and **LoopCycle** activities), they are directed to the final menu options (callback or voicemail).
+**Play Message (Welcome):**
 
-8. **Call Disconnection:**
-   - After all steps are completed or if the caller chooses to exit, the call is disconnected using the **DisconnectContact** activities.
+- A message is played to welcome the caller. In this flow, the message says: "Welcome to Webex Contact Center!"
+- This message is configured using Cisco TTS, but can be replaced with a custom recording.
 
-### Activities Used
+**Business Hours:**
 
-**Start**
-- **NewPhoneContact:** Starts the flow when the call is received.
+- The flow checks the current date & time against the defined business hours, holidays and overrides
+- If the current date & time falls within any override defined, then the override path is chosen
+- If the current date falls within any holiday defined, then the holiday path is chosen
+- If the current day of week and time falls within a defined business hours shift, then the working hours path is chosen
+- If none of the above happens, then the default path is chosen
 
-**Business Hours Check**
-- **BusinessHours:** Checks if the call is during business hours, holidays, or emergency override situations.
+**Play Message (Override, Holiday and After Hours):**
 
-**IVR Menu**
-- **WelcomeMenu:** Plays a menu with options for self-service (Press 1 for Support, Press 2 for Sales).
+- These play message steps alert the caller to the reason for the closure
 
-**Queue Handling**
-- **Queue:** Places the caller in a queue for the appropriate team (e.g., support or sales).
-- **GetPositioninQueue:** Retrieves and announces the caller's position in the queue.
-- **PlayPIQ:** Announces the caller’s position in the queue.
+**Menu (Main):**
 
-**Callback and Voicemail Options**
-- **FinalMenu:** Offers callback or voicemail options if the call loops multiple times.
-- **Callback_guf:** Schedules a callback for the caller.
-- **VoiceMail:** Transfers the caller to voicemail.
+- Press 1 for Support: The call is queued for the support team
+- Press 2 for Sales: The call is queued for the sales team
+- Press nothing: The call is sent to Sales
+- Press invalid option: The call is sent to Sales
 
-**Hold Music**
-- **MusicOnHold:** Plays hold music while the caller waits in the queue.
+**Queue Contact:**
 
-**Loop Handling**
-- **CallLoopCycle and LoopCycle:** Ensures that calls looping too many times are directed to the final menu.
+- After the menu, the call is placed into a specific queue
+- If there are available Agents, the Caller will be connected to an Agent, and the flow ends
 
-**Disconnection**
-- **DisconnectContact:** Disconnects the call after messages or when the caller chooses to end the interaction.
+**Advanced Queue Info:**
+
+- This activity grabs multiple statistics about the caller and the queue selected, but we are only interested in using position in queue (PIQ) for this flow
+
+**Set Variable (PIQ):**
+
+- We use the set variable step to store the PIQ value
+- We do this so that we can collapse the flow logic into a single stream, after starting as two separate streams with the outcome of the menu
+- This is an optional optimization to collapse the logic
+
+**Play Message (Agent Busy):**
+
+- We inform the Caller that all Agents are busy
+- We also inform the Caller of their PIQ
+
+**Condition (PIQ):**
+
+- This activity checks if the PIQ of the Caller is below or above a certain theshold
+- In this way, we avoid offering Callback to a Caller who is first in line (PIQ = 1)
+
+**Menu (Callback and Voicemail):**
+
+- If the Caller's PIQ exceeds our defined threshold of 9 Callers in queue, we offer alterntive options than waiting in the queue listening to music
+- If the Caller chooses Callback, we take their caller ID number and the entry point number they dialed, and submit a callback request on their behalf. We then thank them, and disconnect the call.
+- If the Caller chooses to leave a voicemail, we use a blind transfer to send the Caller to an extension. This extension should be configured in your telephony system to be answered by voicemail.
+
+**Play Message (Comfort):**
+
+- A secondary message is played while the caller is waiting to keep them comfortable about the wait
+
+**Play Music (Hold Music):**
+
+- While waiting in the queue, the flow plays hold music. In this case, the default file "defaultmusic_on_hold.wav" is used, and it plays for 30 seconds before looping back to the Comfort Play Message activity.
+
+**Play Message (Callback Failure):**
+
+- If we have trouble with the Callback feature, we let the Caller know, and continue the queue treatment
 
 ### Additional Details
 
-For more information, refer to the detailed documentation on the Webex Contact Center help portal.
+For more information on Webex Contact Center Flows, refer to the detailed documentation on help.webex.com.
 
 [Webex Contact Center Flow Designer - Administration Guide](https://help.webex.com/en-us/article/n5595zd/Webex-Contact-Center-Setup-and-Administration-Guide#Cisco_Generic_Topic.dita_e338e055-64b0-4973-bd52-8a5581dcb0ee)
