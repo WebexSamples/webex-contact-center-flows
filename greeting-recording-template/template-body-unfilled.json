@@ -1,0 +1,13 @@
+{
+    "category": "Cisco",
+    "description": "",
+    "details": "",
+    "featureFlagName": "flow-control-draft-templates",
+    "featureFlagValue": "",
+    "flowType": "FLOW",
+    "icon": "https://seeklogo.com/images/C/cisco-logo-FE0AB16DCF-seeklogo.com.png",
+    "instructionsURL": "https://help.webex.com/en-us/article/n5595zd/Webex-Contact-Center-Setup-and-Administration-Guide#Cisco_Generic_Topic.dita_e338e055-64b0-4973-bd52-8a5581dcb0ee",
+    "labels": [""],
+    "name": "",
+    "flow":""
+}

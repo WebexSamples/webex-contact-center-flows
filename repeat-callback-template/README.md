@@ -1,98 +1,101 @@
-# Comprehensive Inbound Contact Flow - Template
+# Avoid Duplicate Callback
 
 ## Name
-Comprehensive Inbound Contact Flow
+Avoid Duplicate Callback
 
-## Labels 
-Intermediate, Voice, Inbound, PIQ, Queue
+## Labels
+Voice, HTTP Activity, GraphQL, Search API, Avoid Duplicate Callback
 
 ## Description
 
-This flow demonstrates a comprehensive inbound voice call scenario for Webex Contact Center. It includes handling business hours, holidays, emergency overrides, self-service options, position in queue (PIQ) announcements, and customer callback options. This is suitable for environments where basic self-service and call queuing are essential.
+This flow template demonstrates how to prevent duplicate callback entries within Webex Contact Center by leveraging the enhanced HTTP Activity with support for `Content-Type: GraphQL`. It uses the WebexCC APIs HTTP connector to interact with the Search API, enabling the flow to check for existing callback requests from the same caller. This template improves efficiency and customer experience by avoiding redundant callbacks.
 
 ## Details
 
-This inbound flow provides a comprehensive handling of incoming calls, covering business hours checks, position in queue announcements, and callback options. Modify the flow to fit specific organization needs and to handle unknown conditions gracefully.
+This flow template checks if a customer has already placed a callback request in the system. It utilizes the Search API via GraphQL to determine if an active callback task exists for the caller's ANI (Automatic Number Identification).
 
-> Note: This flow uses Cisco Text-to-Speech (TTS) for audio activities requiring prompts (if any).
->
-> For music, it defaults to the `defaultmusic_on_hold.wav` file provided out-of-box.
->
-> All organization-specific configurations such as Queue, Entry Points, Connectors, Outdial ANI must be manually configured in the Control Hub settings page for Webex Contact Center before publishing.
+It uses the feature that enhances the HTTP Activity within Webex Contact Center by adding support for `Content-Type: GraphQL` - Ability to use the WebexCC APIs HTTP connector to use the Search API via the new GraphQL content type, including variable substitution.
 
 ### Pre-requisites
 
-- Create Entry Point, Queue, Teams, and Entry Point Mapping from the Control Hub settings page for Webex Contact Center. Refer to the [Webex Contact Center Setup and Administration Guide](https://help.webex.com/en-us/article/n5595zd/Webex-Contact-Center-Setup-and-Administration-Guide#Cisco_Generic_Topic.dita_e338e055-64b0-4973-bd52-8a5581dcb0ee).
-- Set up working hours, holiday lists, and emergency overrides from Control Hub → Services → Contact Center Setup → Business Hours.
-- If Cisco Text-to-Speech (TTS) is not enabled for prompts, upload the required static audio files.
+- Configure a Connector to Webex Contact Center APIs.
+- Ensure the Webex Contact Center environment is properly set up: Entry Point, Entry Point Mapping, Queues, etc.
 
 ### Flow Breakdown
 
 1. **Call is Received:**
    - Call enters the flow at the **NewPhoneContact** activity.
 
-2. **Check Business Hours:**
-   - The flow checks the current time against the defined business hours using the **BusinessHours** activity.
-     - **Working Hours:** The call is routed to the **Work_Non_WorkHours_Match** activity, and further handled based on conditions such as open hours or after-hours.
-     - **Holidays:** The **Holiday_Closed** message plays, informing the caller that the office is closed due to a holiday, followed by disconnection.
-     - **Emergency Override:** The **Override_Emergency** activity plays an emergency override message, followed by disconnection.
-     - **After Hours:** The **AfterHours_Prompt** activity plays a closed-hours message, and the call is disconnected.
+2. **Initial Greeting:**
+   - The **PlayMessage_wgk** activity plays an initial greeting message to the caller.
 
-3. **Self-Service Options:**
-   - During open hours, the **WelcomeMenu** (IVR Menu) activity plays a menu offering basic self-service options to callers:
-     - **Press 1 for Customer Support:** The call is queued for the support team.
-     - **Press 2 for Sales:** The call is queued for the sales team.
+3. **Extract Current Time:**
+   - The **SetVariable_7a1** activity extracts the current time in epoch milliseconds and stores it in the `currentTime` variable.
 
-4. **Queue Placement:**
-   - The caller is placed in a queue using the **Queue** activity.
-   - The **GetPositioninQueue** activity retrieves the caller’s position in the queue, and this information is announced to the caller using the **PlayPIQ** activity.
+4. **Calculate Time 24 Hours Ago:**
+   - The **SetVariable_8t9** activity calculates the time 24 hours prior to the current time in epoch milliseconds and stores it in the `goback_by_a_day` variable.
 
-5. **Callback and Voicemail Options:**
-   - If the caller chooses to leave a voicemail or request a callback, the **FinalMenu** activity is triggered:
-     - **Press 1 for Callback:** The **Callback_guf** activity is used to schedule a callback.
-     - **Press 2 for Voicemail:** The call is transferred to voicemail using the **VoiceMail** activity.
+5. **Trim the ANI:**
+    - The **SetVariable_ak4** activity trims the ANI (caller's phone number) to remove the "+1" prefix for lookup purposes.
 
-6. **Hold Music:**
-   - While waiting in the queue, the caller hears hold music using the **MusicOnHold** activity.
+6. **Search API Call (GraphQL):**
+   - The **SearchAPIRequest** activity makes a call to the Webex Contact Center Search API using GraphQL to find any existing active callback tasks based on the ANI.
+   - It uses the `goback_by_a_day` and `currentTime` variables to search within the last 24 hours.
+   - The GraphQL query searches for tasks matching the caller's ANI or trimmed ANI that are active and have a callback status.
 
-7. **Loop Handling:**
-   - The flow ensures that if a caller loops too many times (via the **CallLoopCycle** and **LoopCycle** activities), they are directed to the final menu options (callback or voicemail).
+7. **Check API Response:**
+   - The **SetVariable_xye** activity combines the HTTP status code, callback status, and HTTP response body from the Search API call into the `apiOutput` variable.
+   - The **Condition_ts8** activity checks if the HTTP response body from the Search API call contains "Not Processed", indicating no duplicate callback.
 
-8. **Call Disconnection:**
-   - After all steps are completed or if the caller chooses to exit, the call is disconnected using the **DisconnectContact** activities.
+8. **Handle Duplicate Callback (If Found):**
+   - If a duplicate callback is found (the API response contains a callback), the **PlayMessage_99x** activity informs the caller that a callback is already scheduled and then the **DisconnectContact_mx8** activity disconnects the call.
+
+9. **Schedule New Callback (If Not Found):**
+   - If no duplicate callback is found, the flow proceeds to the **Menu_lsi** activity, which presents the caller with options to schedule a callback or wait in the queue.
+
+10. **Schedule Callback:**
+    - If the caller chooses to schedule a callback (presses 1), the **Callback_20e** activity schedules a callback using the caller's ANI. A confirmation message is played via **PlayMessage_ysw** and then **DisconnectContact_mx8_2bg** disconnects the call.
+
+11. **Wait in Queue:**
+    - If the caller chooses to wait in the queue (presses 2), the **SetVariable_c0y** increments a counter. The call is then queued to an agent via **QueueContact_95e** and music is played on hold via **PlayMusic_qne**. The call loops back to the **Menu_lsi** activity.
+
+### Variables
+
+-   **callBackStatus:** (STRING) - The status of the callback.
+-   **counter:** (INTEGER) - A counter variable.
+-   **currentTime:** (STRING) - The current time in milliseconds since epoch.
+-   **goback_by_a_day:** (STRING) - The time 24 hours ago in milliseconds since epoch.
+-   **apiOutput:** (STRING) - The combined HTTP status code, callback status, and HTTP response from the Search API.
+-   **ANITrim:** (STRING) - The trimmed ANI (phone number) of the caller.
+-   **response:** (STRING) - The HTTP response from the Search API.
 
 ### Activities Used
 
 **Start**
-- **NewPhoneContact:** Starts the flow when the call is received.
 
-**Business Hours Check**
-- **BusinessHours:** Checks if the call is during business hours, holidays, or emergency override situations.
+-   **NewPhoneContact:** Starts the flow when a new phone contact is received.
 
-**IVR Menu**
-- **WelcomeMenu:** Plays a menu with options for self-service (Press 1 for Support, Press 2 for Sales).
+**Action**
 
-**Queue Handling**
-- **Queue:** Places the caller in a queue for the appropriate team (e.g., support or sales).
-- **GetPositioninQueue:** Retrieves and announces the caller's position in the queue.
-- **PlayPIQ:** Announces the caller’s position in the queue.
+-   **PlayMessage:** Plays a message to the caller.
+-   **Callback:** Schedules a callback for the caller.
+-   **PlayMusic:** Plays music on hold.
+-   **QueueContact:** Queues the call to an agent.
+-   **HTTP:** Makes an HTTP request to the Search API using GraphQL.
+-   **DisconnectContact:** Disconnects the call.
 
-**Callback and Voicemail Options**
-- **FinalMenu:** Offers callback or voicemail options if the call loops multiple times.
-- **Callback_guf:** Schedules a callback for the caller.
-- **VoiceMail:** Transfers the caller to voicemail.
+**Set Variable**
 
-**Hold Music**
-- **MusicOnHold:** Plays hold music while the caller waits in the queue.
+-   **SetVariable:** Sets various variables, including current time, time 24 hours ago, trimmed ANI, and API output.
 
-**Loop Handling**
-- **CallLoopCycle and LoopCycle:** Ensures that calls looping too many times are directed to the final menu.
+**Conditions**
 
-**Disconnection**
-- **DisconnectContact:** Disconnects the call after messages or when the caller chooses to end the interaction.
+-   **Condition:** Checks if the HTTP response body contains "Not Processed".
+-   **Menu:** Provides the caller with options to schedule a callback or wait in the queue.
 
 ### Additional Details
 
-For more information, refer to the detailed documentation on the Webex Contact Center help portal.
+For more information on using HTTP requests with GraphQL and other activities within Webex Contact Center, refer to the [Webex Contact Center Setup and Administration Guide](https://help.webex.com/en-us/article/n5595zd/Webex-Contact-Center-Setup-and-Administration-Guide).
 
-[Webex Contact Center Flow Designer - Administration Guide](https://help.webex.com/en-us/article/n5595zd/Webex-Contact-Center-Setup-and-Administration-Guide#Cisco_Generic_Topic.dita_e338e055-64b0-4973-bd52-8a5581dcb0ee)
+Also refer to the Webex Contact Center APIs documentation for details on the Search API and GraphQL queries.
+[Search API Documentation - Developer Portal](https://developer.webex-cx.com/documentation/search/v1/search-tasks)
