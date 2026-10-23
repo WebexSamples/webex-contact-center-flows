@@ -4,11 +4,11 @@
 Audio Prompt Recording and Management
 
 ## Labels
-Voice, Audio File, Prompt Management, TUI, HTTP Activity, Form Data
+Voice, Audio File, Prompt Management, TUI, HTTP Activity, Application/JSON
 
 ## Description
 
-This flow template provides a streamlined method for administrators to record and manage audio prompts within Webex Contact Center via a Telephony User Interface (TUI). It leverages enhanced HTTP Activity capabilities, including support for `Content-Type: Form Data` to interact with Webex Contact Center's Audio File (Prompt) APIs. This template replicates functionalities familiar from on-premises systems, improving customer experience and operational efficiency.
+This flow template provides a streamlined method for administrators to record and manage audio prompts within Webex Contact Center via a Telephony User Interface (TUI). It leverages enhanced HTTP Activity capabilities, including support for `Content-Type: Application/JSON` to interact with Webex Contact Center's Audio File (Prompt) APIs. This template replicates functionalities familiar from on-premises systems, improving customer experience and operational efficiency.
 
 ## Details
 
@@ -38,7 +38,7 @@ This flow template empowers administrators to easily record, replace, and manage
 2. **Create Prompt (Option 1):**
    - The **PlayMessage_kcx** activity prompts the administrator to record a new audio prompt.
    - The **Record_e0j** activity records the audio input from the administrator.
-   - The recorded audio is then sent to the Webex Contact Center API using the **CreatePrompt** HTTP request activity with `Content-Type: Form Data`.
+   - The recorded audio is then sent to the Webex Contact Center API using the **CreatePrompt** HTTP request activity with `Content-Type: Application/JSON`.
    - The **Parse_gke** activity parses the response to extract the `id` and `blobId` of the newly created prompt. This is needed in case one needs to update the same prompt.
    - The **PlayMessage_q16** activity confirms that the message has been created.
    - The system plays back the recorded prompt for confirmation using **PlayRecordedMessage**.
@@ -47,7 +47,7 @@ This flow template empowers administrators to easily record, replace, and manage
    - The **RecordPromptAfterTone** activity prompts the administrator to record an updated prompt.
    - The **Record_e38** activity records the new audio.
    - The flow then renames the file to be deleted using **RenameFileToDelete**. This ensures references to this audio file are removed wherever audio files are referred by name.
-   - The updated audio is sent to the Webex Contact Center API using the **HTTPRequest_13n** HTTP request activity with `Content-Type: Form Data`.
+   - The updated audio is sent to the Webex Contact Center API using the **HTTPRequest_13n** HTTP request activity with `Content-Type: Application/JSON`.
    - The system confirms the update and plays back the new prompt using **PlayMessage_q16_jpg_03l** and **PlayMessage_0l6**.
 
 4.  **Delete Prompt (Option 3):**
@@ -80,7 +80,7 @@ This flow template empowers administrators to easily record, replace, and manage
 **Create Prompt**
 - **PlayMessage:** Prompts the administrator to record a new prompt.
 - **Record:** Records the audio input.
-- **HTTP Request:** HTTP request to create the audio prompt using `Content-Type: FORM-DATA`.
+- **HTTP Request:** HTTP request to create the audio prompt using `Content-Type: Application/JSON`.
 - **Parse:** Parses the HTTP response to extract the `id` and `blobId`.
 - **PlayMessage:** Confirms the message creation.
 - **PlayMessage:** Plays back the recorded prompt.
@@ -88,7 +88,7 @@ This flow template empowers administrators to easily record, replace, and manage
 **Update Prompt**
 - **Menu:** Prompts the administrator to record an updated prompt.
 - **Record_e38:** Records the audio input.
-- **HTTP Request:** HTTP request to update the audio prompt using `Content-Type: FORM-DATA`.
+- **HTTP Request:** HTTP request to update the audio prompt using `Content-Type: Application/JSON`.
 - **PlayMessage:** Confirms the message update.
 - **PlayMessage:** Plays back the updated prompt.
 
